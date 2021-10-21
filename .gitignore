@@ -1,0 +1,13 @@
+logbook.pdf
+map.png
+.logbook.json
+
+bin
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+dist/
