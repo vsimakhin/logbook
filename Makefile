@@ -29,8 +29,6 @@ build:
 			go build \
 			-ldflags="-s -w -X 'github.com/vsimakhin/$(BINARY_NAME)/cmd.version=$(VERSION)' -X 'github.com/vsimakhin/$(BINARY_NAME)/cmd.buildTime=$(BUILD_TIME)'" \
 			-o=$(BIN)/$(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH/logbook ; \
-			cp -r ./font $(BIN)/$(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH/; \
-			cp -r ./db $(BIN)/$(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH/; \
 			[ $$OS = "windows" ] && (cd $(BIN); zip -r $(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH.zip $(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH; cd ../) \
 				|| (cd $(BIN); tar czf $(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH.tar.gz $(BINARY_NAME)-$(VERSION)-$$OS-$$ARCH; cd ../) ;\
 		done ; \

@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -40,11 +39,6 @@ func exportRun(cmd *cobra.Command, args []string) {
 	checkParam(reverseEntries, "reverse")
 
 	reverse, _ := strconv.ParseBool(reverseEntries)
-
-	err := logbook.CheckSystemFiles()
-	if err != nil {
-		log.Fatalf("System files check: %v", err)
-	}
 
 	logbook.Export(apiKey, spreadsheetId, startRow, logbookOwner, pageBrakes, reverse)
 }

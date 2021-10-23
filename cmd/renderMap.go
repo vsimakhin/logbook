@@ -16,8 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 	"github.com/vsimakhin/logbook/logbook"
 )
@@ -37,11 +35,6 @@ func renderMapRun(cmd *cobra.Command, args []string) {
 	checkParam(apiKey, "api_key")
 	checkParam(spreadsheetId, "spreadsheet_id")
 	checkParam(startRow, "start_row")
-
-	err := logbook.CheckSystemFiles()
-	if err != nil {
-		log.Fatalf("System files check: %v", err)
-	}
 
 	logbook.RendersMap(apiKey, spreadsheetId, startRow, noRoutes, filterDate)
 }

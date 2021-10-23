@@ -20,7 +20,7 @@ You will need to create an API key to allow the tool to fetch the data from the 
 ## First run
 
 1. Download the latest version from the [releases](https://github.com/vsimakhin/logbook/releases)
-2. During the first run there will be created a config file ($HOME/.logbook.json) and can be downloaded additional files (fonts, airport db)
+2. During the first run there will be created a config file ($HOME/.logbook.json)
 
 ```json
 {
@@ -87,4 +87,4 @@ Create a map with flights for the October 2021
 
 # TODO
 - add show-stats command with total times and some other numbers
-- add goreleser
+- add goreleaser
