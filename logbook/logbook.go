@@ -2,15 +2,11 @@ package logbook
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"image/color"
-	"io"
-	"io/ioutil"
 	"log"
-	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -139,78 +135,8 @@ var w2 = []float64{12.2, 16.5, 16.5, 22.9, 22.4, 11.2, 11.2, 22.86, 16.76, 22.4,
 var w3 = []float64{12.2, 8.25, 8.25, 8.25, 8.25, 10, 12.9, 11.2, 11.2, 11.2, 11.2, 22.86, 8.38, 8.38, 11.2, 11.2, 11.2, 11.2, 11.2, 11.2, 11.2, 11.2, 33.8}
 var w4 = []float64{20.45, 47.65, 11.2, 11.2, 11.2, 11.2, 22.86, 8.38, 8.38, 11.2, 11.2, 11.2, 11.2, 11.2, 11.2, 11.2, 11.2, 33.8}
 
-var repo = "https://github.com/vsimakhin/logbook/raw/master/"
-
-var systemFiles = []string{
-	"db/airports.json",
-	"font/LiberationSansNarrow-Bold.ttf",
-	"font/LiberationSansNarrow-Regular.json",
-	"font/LiberationSansNarrow-Regular.z",
-	"font/LiberationSansNarrow-Regular.ttf",
-	"font/LiberationSansNarrow-Bold.json",
-	"font/LiberationSansNarrow-Bold.z",
-}
-
-// DownloadFile will download a url and store it in local filepath.
-func downloadFile(url string, filepath string) (err error) {
-	// Create the file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// CheckSystemFiles checks if all needed files (db, fonts) exist.
-// If not, it will try to download it from the git repo
-func CheckSystemFiles() (err error) {
-
-	// get current location
-	pwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	for _, file := range systemFiles {
-		fullFileName := pwd + string(os.PathSeparator) + strings.ReplaceAll(file, "/", string(os.PathSeparator))
-		if _, err := os.Stat(fullFileName); os.IsNotExist(err) {
-			url := repo + file
-
-			fmt.Printf("System file %s does not exist. Downloading ... ", file)
-
-			// check if directory exists and create it if not
-			if _, err := os.Stat(filepath.Dir(fullFileName)); os.IsNotExist(err) {
-				err := os.Mkdir(filepath.Dir(fullFileName), os.ModePerm)
-				if err != nil {
-					return err
-				}
-			}
-			// download file
-			err := downloadFile(url, fullFileName)
-			if err != nil {
-				return err
-			}
-			fmt.Println("OK")
-		}
-	}
-
-	return nil
-}
+//go:embed  db/airports.json font/*
+var content embed.FS
 
 // getLogbookDump creates a connection to the google spreadsheet using apiKey and spreadsheetId and
 // returns dump of data (array of rows started from startRow to filter out some non-needed stuff)
@@ -378,6 +304,7 @@ func printLogbookFooter(pdf *gofpdf.Fpdf, logbookOwner string, totalPage logbook
 	printTotal := func(totalName string, total logbookTotalRecord) {
 		pdf.SetFillColor(217, 217, 217)
 		pdf.SetFont("LiberationSansNarrow-Bold", "", 8)
+
 		pdf.SetX(leftMargin)
 
 		if totalName == "TOTAL THIS PAGE" {
@@ -486,6 +413,17 @@ func fillLine(rowCounter int) bool {
 	}
 }
 
+// LoadFonts loads fonts for pdf object from embed fs
+func LoadFonts(pdf *gofpdf.Fpdf) {
+
+	fontRegularBytes, _ := content.ReadFile("font/LiberationSansNarrow-Regular.ttf")
+	pdf.AddUTF8FontFromBytes("LiberationSansNarrow-Regular", "", fontRegularBytes)
+
+	fontBoldBytes, _ := content.ReadFile("font/LiberationSansNarrow-Bold.ttf")
+	pdf.AddUTF8FontFromBytes("LiberationSansNarrow-Bold", "", fontBoldBytes)
+
+}
+
 // Export reads the google spreadsheet and create pdf with logbook in EASA format
 //
 // params parsed in the next order:
@@ -511,9 +449,9 @@ func Export(params ...interface{}) {
 	}
 
 	// start forming the pdf file
-	pdf := gofpdf.New("L", "mm", "A4", "font")
-	pdf.AddFont("LiberationSansNarrow-Regular", "", "LiberationSansNarrow-Regular.json")
-	pdf.AddFont("LiberationSansNarrow-Bold", "", "LiberationSansNarrow-Bold.json")
+	pdf := gofpdf.New("L", "mm", "A4", "")
+	LoadFonts(pdf)
+
 	pdf.SetLineWidth(.2)
 
 	rowCounter := 0
@@ -603,15 +541,8 @@ func Export(params ...interface{}) {
 func loadAirportsDB() (map[string]interface{}, error) {
 	var airports map[string]interface{}
 
-	// read json with airports database
-	jsonFile, err := os.Open("./db/airports.json")
-	if err != nil {
-		return airports, err
-	}
+	byteValue, err := content.ReadFile("db/airports.json")
 
-	defer jsonFile.Close()
-
-	byteValue, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
 		return airports, err
 	}

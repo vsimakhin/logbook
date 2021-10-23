@@ -15,7 +15,9 @@ limitations under the License.
 */
 package main
 
-import "github.com/vsimakhin/logbook/cmd"
+import (
+	"github.com/vsimakhin/logbook/cmd"
+)
 
 func main() {
 	cmd.Execute()
