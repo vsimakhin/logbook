@@ -4,7 +4,7 @@ XC_ARCH ?= amd64 arm64
 XC_OS ?= linux
 XC_ARCH ?= amd64
 BIN="./bin"
-VERSION ?= $(shell git describe --tags --abbrev=0)
+VERSION ?= local
 BUILD_TIME=$(shell date -u "+%FT%H:%M:%SZ")
 
 .PHONY: all build test clean
