@@ -17,11 +17,19 @@ var renderMapCmd = &cobra.Command{
 
 func renderMapRun(cmd *cobra.Command, args []string) {
 
-	checkParam(apiKey, "api_key")
-	checkParam(spreadsheetId, "spreadsheet_id")
-	checkParam(startRow, "start_row")
+	verifyConfig()
 
-	logbook.RendersMap(apiKey, spreadsheetId, startRow, noRoutes, filterDate)
+	logbookConfig := logbook.LogbookConfig{
+		SourceType:     sourceType,
+		FileName:       fileName,
+		APIKey:         apiKey,
+		SpreadsheetID:  spreadsheetId,
+		StartRow:       startRow,
+		FilterDate:     filterDate,
+		FilterNoRoutes: noRoutes,
+	}
+
+	logbook.RendersMap(logbookConfig)
 }
 
 func init() {

@@ -15,9 +15,23 @@ import (
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/s2"
 	"github.com/jung-kurt/gofpdf"
+	"github.com/xuri/excelize/v2"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
+
+type LogbookConfig struct {
+	SourceType     string
+	FileName       string
+	APIKey         string
+	SpreadsheetID  string
+	StartRow       int
+	LogbookOwner   string
+	PageBrakes     []string
+	Reverse        bool
+	FilterNoRoutes bool
+	FilterDate     string
+}
 
 // logbook time type, sort of a wrapper for time.Duration
 type logbookTime struct {
@@ -123,6 +137,8 @@ var logbookRows = 23
 var bodyRowHeight = 5.0
 var footerRowHeight = 6.0
 
+var sheetName = "Flights"
+
 var header1 = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}
 var header2 = []string{"DATE", "DEPARTURE", "ARRIVAL", "AIRCRAFT", "SINGLE PILOT TIME", "MULTI PILOT TIME", "TOTAL TIME", "PIC NAME", "LANDINGS", "OPERATIONAL CONDITION TIME", "PILOT FUNCTION TIME", "FSTD SESSION", "REMARKS AND ENDORSMENTS"}
 var header3 = []string{"", "Place", "Time", "Place", "Time", "Type", "Reg", "SE", "ME", "", "", "", "Day", "Night", "Night", "IFR", "PIC", "COP", "DUAL", "INSTR", "Type", "Time", ""}
@@ -135,34 +151,64 @@ var w4 = []float64{20.45, 47.65, 11.2, 11.2, 11.2, 11.2, 22.86, 8.38, 8.38, 11.2
 //go:embed  db/airports.json font/*
 var content embed.FS
 
-// getLogbookDump creates a connection to the google spreadsheet using apiKey and spreadsheetId and
-// returns dump of data (array of rows started from startRow to filter out some non-needed stuff)
-// for the "Flights" page
-//
-// apiKey string - google api key
-//
-// spreadsheetID string - https://docs.google.com/spreadsheets/d/<SPREADSHEETID>/edit#gid=0. The spreadsheet
-// should be shared as readonly with a link
-//
-// startRow string - the first row which hase the logbook records
-func getLogbookDump(apiKey string, spreadsheetId string, startRow string) (*sheets.ValueRange, error) {
-	ctx := context.Background()
+// getLogbookDump reads the logbook from the source (google spreadsheet, local xlsx file)
+func getLogbookDump(logbookConfig LogbookConfig) (values [][]interface{}, err error) {
 
-	srv, err := sheets.NewService(ctx, option.WithAPIKey(apiKey))
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve Google Spreadsheets client: %v", err)
+	if logbookConfig.SourceType == "google" {
+		// get data from google spreadsheet
+		ctx := context.Background()
+
+		srv, err := sheets.NewService(ctx, option.WithAPIKey(logbookConfig.APIKey))
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve Google Spreadsheets client: %v", err)
+		}
+
+		response, err := srv.Spreadsheets.Values.Get(logbookConfig.SpreadsheetID, fmt.Sprintf("%s!A%d:W", sheetName, logbookConfig.StartRow)).Do()
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve data from sheet: %v", err)
+		}
+
+		if len(response.Values) == 0 {
+			return nil, fmt.Errorf("no data found in the sheet")
+		}
+
+		values = response.Values
+
+	} else {
+		// get data from local xlsx file
+		xls, err := excelize.OpenFile(logbookConfig.FileName)
+		if err != nil {
+			return nil, fmt.Errorf("error opening xlsx file: %v", err)
+		}
+
+		rows, err := xls.GetRows(sheetName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve data from sheet: %v", err)
+		}
+
+		for i, row := range rows {
+			// skip first rows (headers)
+			if i < logbookConfig.StartRow-1 {
+				continue
+			}
+
+			var appendRow []interface{}
+
+			for _, colCell := range row {
+				if strings.HasPrefix(colCell, ":") {
+					// somehow in case the time equals 0:mm it returns :mm only
+					colCell = "0" + colCell
+				}
+				appendRow = append(appendRow, colCell)
+			}
+
+			values = append(values, appendRow)
+		}
+
 	}
 
-	response, err := srv.Spreadsheets.Values.Get(spreadsheetId, fmt.Sprintf("Flights!A%s:W", startRow)).Do()
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve data from sheet: %v", err)
-	}
+	return values, err
 
-	if len(response.Values) == 0 {
-		return nil, fmt.Errorf("no data found in the sheet")
-	}
-
-	return response, err
 }
 
 // parseRecord returns a formed and parsed logbookRecord
@@ -422,25 +468,10 @@ func LoadFonts(pdf *gofpdf.Fpdf) {
 }
 
 // Export reads the google spreadsheet and create pdf with logbook in EASA format
-//
-// params parsed in the next order:
-// params[0] - apiKey string
-// params[1] - spreadsheetId string
-// params[2] - startRow string
-// params[3] - logbookOwner string
-// params[4] - pageBrakes string
-// params[5] - reverseEntries string
-func Export(params ...interface{}) {
-	// parse the params
-	apiKey := params[0].(string)
-	spreadsheetId := params[1].(string)
-	startRow := params[2].(string)
-	logbookOwner := params[3].(string)
-	pageBrakes := strings.Split(params[4].(string), ",")
-	reverseEntries, _ := params[5].(bool)
+func Export(logbookConfig LogbookConfig) {
 
 	// get data from the google spreadsheet
-	response, err := getLogbookDump(apiKey, spreadsheetId, startRow)
+	response, err := getLogbookDump(logbookConfig)
 	if err != nil {
 		log.Fatalf("Cannot get logbook dump: %v", err)
 	}
@@ -467,7 +498,7 @@ func Export(params ...interface{}) {
 	logBookRow := func(item int) {
 		rowCounter += 1
 
-		record := parseRecord(response.Values[item])
+		record := parseRecord(response[item])
 
 		totalPage = calculateTotals(totalPage, record)
 		totalTime = calculateTotals(totalTime, record)
@@ -475,7 +506,7 @@ func Export(params ...interface{}) {
 		printLogbookBody(pdf, record, fill)
 
 		if rowCounter >= logbookRows {
-			printLogbookFooter(pdf, logbookOwner, totalPage, totalPrevious, totalTime)
+			printLogbookFooter(pdf, logbookConfig.LogbookOwner, totalPage, totalPrevious, totalTime)
 			totalPrevious = totalTime
 			totalPage = totalEmpty
 
@@ -484,12 +515,12 @@ func Export(params ...interface{}) {
 			pdf.CellFormat(0, 10, fmt.Sprintf("page %d", pageCounter), "", 0, "L", false, 0, "")
 
 			// check for the page brakes to separate logbooks
-			if len(pageBrakes) > 0 {
-				if fmt.Sprintf("%d", pageCounter) == pageBrakes[0] {
+			if len(logbookConfig.PageBrakes) > 0 {
+				if fmt.Sprintf("%d", pageCounter) == logbookConfig.PageBrakes[0] {
 					pdf.AddPage()
 					pageCounter = 0
 
-					pageBrakes = append(pageBrakes[:0], pageBrakes[1:]...)
+					logbookConfig.PageBrakes = append(logbookConfig.PageBrakes[:0], logbookConfig.PageBrakes[1:]...)
 				}
 			}
 
@@ -503,12 +534,12 @@ func Export(params ...interface{}) {
 
 	}
 
-	if reverseEntries {
-		for i := len(response.Values) - 1; i >= 0; i-- {
+	if logbookConfig.Reverse {
+		for i := len(response) - 1; i >= 0; i-- {
 			logBookRow(i)
 		}
 	} else {
-		for i := 0; i < len(response.Values); i++ {
+		for i := 0; i < len(response); i++ {
 			logBookRow(i)
 		}
 	}
@@ -520,7 +551,7 @@ func Export(params ...interface{}) {
 		fill = fillLine(i)
 
 	}
-	printLogbookFooter(pdf, logbookOwner, totalPage, totalPrevious, totalTime)
+	printLogbookFooter(pdf, logbookConfig.LogbookOwner, totalPage, totalPrevious, totalTime)
 	// print page number
 	pdf.SetY(pdf.GetY() - 1)
 	pdf.CellFormat(0, 10, fmt.Sprintf("page %d", pageCounter), "", 0, "L", false, 0, "")
@@ -553,14 +584,7 @@ func loadAirportsDB() (map[string]interface{}, error) {
 }
 
 // RendersMap generates a PNG file with airports markers and routes between them
-func RendersMap(params ...interface{}) {
-	// parse the params
-	apiKey := params[0].(string)
-	spreadsheetId := params[1].(string)
-	startRow := params[2].(string)
-
-	noRoutes := params[3].(bool)
-	filterDate := params[4].(string)
+func RendersMap(logbookConfig LogbookConfig) {
 
 	airportMarkers := make(map[string]struct{})
 	routeLines := make(map[string]struct{})
@@ -574,23 +598,23 @@ func RendersMap(params ...interface{}) {
 	}
 
 	// get data from the google spreadsheet
-	response, err := getLogbookDump(apiKey, spreadsheetId, startRow)
+	response, err := getLogbookDump(logbookConfig)
 	if err != nil {
 		log.Fatalf("Cannot get logbook dump: %v", err)
 	}
 
 	// parsing
-	for _, row := range response.Values {
+	for _, row := range response {
 		record := parseRecord(row)
 
-		if (filterDate != "" && strings.Contains(record.date, filterDate)) || filterDate == "" {
+		if (logbookConfig.FilterDate != "" && strings.Contains(record.date, logbookConfig.FilterDate)) || logbookConfig.FilterDate == "" {
 			// add to the list of the airport markers departure and arrival
 			// it will be automatically a list of unique airports
 			airportMarkers[record.departure.place] = struct{}{}
 			airportMarkers[record.arrival.place] = struct{}{}
 
 			// the same for the route lines
-			if !noRoutes {
+			if !logbookConfig.FilterNoRoutes {
 				if record.departure.place != record.arrival.place {
 					routeLines[fmt.Sprintf("%s-%s", record.departure.place, record.arrival.place)] = struct{}{}
 				}
