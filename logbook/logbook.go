@@ -57,63 +57,60 @@ func (t *logbookTime) GetTime(params ...bool) string {
 	}
 }
 
+// times structure
+type times struct {
+	se         logbookTime
+	me         logbookTime
+	mcc        logbookTime
+	night      logbookTime
+	ifr        logbookTime
+	pic        logbookTime
+	copilot    logbookTime
+	dual       logbookTime
+	instructor logbookTime
+	total      logbookTime
+}
+
+// location structure, contains place and time for departure or arrival
+type location struct {
+	place string
+	time  string
+}
+
+// landings structure, days and night landings
+type landing struct {
+	day   int
+	night int
+}
+
 // logbook record type structure
 type logbookRecord struct {
 	date      string
-	departure struct {
-		place string
-		time  string
-	}
-	arrival struct {
-		place string
-		time  string
-	}
+	departure location
+	arrival   location
+
 	aircraft struct {
 		model string
 		reg   string
 	}
-	time struct {
-		se         logbookTime
-		me         logbookTime
-		mcc        logbookTime
-		night      logbookTime
-		ifr        logbookTime
-		pic        logbookTime
-		copilot    logbookTime
-		dual       logbookTime
-		instructor logbookTime
-		total      logbookTime
-	}
-	landings struct {
-		day   int
-		night int
-	}
+
+	time     times
+	landings landing
+
 	sim struct {
 		name string
 		time logbookTime
 	}
+
 	pic     string
 	remarks string
 }
 
 // type structure to calculate totals
 type logbookTotalRecord struct {
-	time struct {
-		se         logbookTime
-		me         logbookTime
-		mcc        logbookTime
-		night      logbookTime
-		ifr        logbookTime
-		pic        logbookTime
-		copilot    logbookTime
-		dual       logbookTime
-		instructor logbookTime
-		total      logbookTime
-	}
-	landings struct {
-		day   int
-		night int
-	}
+	time     times
+	landings landing
+
 	sim struct {
 		time logbookTime
 	}
