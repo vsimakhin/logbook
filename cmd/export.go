@@ -1,22 +1,8 @@
-/*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package cmd
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/vsimakhin/logbook/logbook"
@@ -31,16 +17,26 @@ var exportCmd = &cobra.Command{
 
 func exportRun(cmd *cobra.Command, args []string) {
 
-	checkParam(apiKey, "api_key")
-	checkParam(spreadsheetId, "spreadsheet_id")
-	checkParam(startRow, "start_row")
-	checkParam(logbookOwner, "owner")
-	checkParam(pageBrakes, "page_brakes")
-	checkParam(reverseEntries, "reverse")
+	verifyConfig()
+
+	verifyParameter(logbookOwner, "owner")
+	verifyParameter(pageBrakes, "page_brakes")
+	verifyParameter(reverseEntries, "reverse")
 
 	reverse, _ := strconv.ParseBool(reverseEntries)
 
-	logbook.Export(apiKey, spreadsheetId, startRow, logbookOwner, pageBrakes, reverse)
+	logbookConfig := logbook.LogbookConfig{
+		SourceType:    sourceType,
+		FileName:      fileName,
+		APIKey:        apiKey,
+		SpreadsheetID: spreadsheetId,
+		StartRow:      startRow,
+		LogbookOwner:  logbookOwner,
+		PageBrakes:    strings.Split(pageBrakes, ","),
+		Reverse:       reverse,
+	}
+
+	logbook.Export(logbookConfig)
 }
 
 func init() {

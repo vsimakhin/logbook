@@ -1,18 +1,3 @@
-/*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package cmd
 
 import (
@@ -30,10 +15,12 @@ import (
 var cfgFile string
 var apiKey string
 var spreadsheetId string
-var startRow string
+var startRow int
 var logbookOwner string
 var pageBrakes string
 var reverseEntries string
+var sourceType string
+var fileName string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -83,6 +70,8 @@ func initConfig() {
 			}
 
 			// default values
+			viper.SetDefault("type", "")
+			viper.SetDefault("file_name", "logbook.xlsx")
 			viper.SetDefault("api_key", "")
 			viper.SetDefault("spreadsheet_id", "")
 			viper.SetDefault("start_row", 20)
@@ -105,15 +94,43 @@ func initConfig() {
 		// fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 		apiKey = viper.GetString("api_key")
 		spreadsheetId = viper.GetString("spreadsheet_id")
-		startRow = viper.GetString("start_row")
+		startRow = viper.GetInt("start_row")
 		logbookOwner = viper.GetString("owner")
 		pageBrakes = viper.GetString("page_brakes")
 		reverseEntries = viper.GetString("reverse")
+		sourceType = viper.GetString("type")
+		fileName = viper.GetString("file_name")
 	}
 }
 
-func checkParam(param interface{}, name string) {
+// verifyParameter checks individual paramater if it has some value
+//
+// param interface{} - parameter to verify
+// name string - paramater name in the configuration file
+func verifyParameter(param interface{}, name string) {
 	if reflect.ValueOf(param).IsZero() {
 		log.Fatalf("The '%s' value in the %s is not set", name, cfgFile)
 	}
+}
+
+// verifyConfig checks the set of parameters which should be placed together
+// in the configuration file
+func verifyConfig() {
+
+	verifyParameter(sourceType, "type")
+
+	if sourceType == "xlsx" {
+		verifyParameter(fileName, "file_name")
+
+	} else if sourceType == "google" {
+		verifyParameter(apiKey, "api_key")
+		verifyParameter(spreadsheetId, "spreadsheet_id")
+
+	} else {
+		log.Fatalf("unknown type for the source in the %s config file", cfgFile)
+
+	}
+
+	verifyParameter(startRow, "start_row")
+
 }

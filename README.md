@@ -1,6 +1,6 @@
 # Logbook CLI
 
-This is a command line tool for mainly exporting logbook records from Google Spreadsheet to PDF file in EASA format.
+This is a command line tool for mainly exporting logbook records from Google Spreadsheet or local XLSX file to PDF file in EASA format.
 It also supports rendering a map with a visited airports and routes.
 
 # Setting up
@@ -13,9 +13,13 @@ The spreadsheet supports some total calculations, but you can remove these lines
 
 You can add your flights in the `reverse` (the most recent flight is in the top) or `straight` (the most recent flight is at the end) modes
 
-## Google API key
+### Google API key
 
 You will need to create an API key to allow the tool to fetch the data from the spreadsheet. The manual is here https://support.google.com/googleapi/answer/6158862?hl=en
+
+## Local Excel XLSX file
+
+Copy the [logbook.xlsx](./internal/logbook.xlsx) and set the filename location in the configuration file
 
 ## First run
 
@@ -24,6 +28,8 @@ You will need to create an API key to allow the tool to fetch the data from the 
 
 ```json
 {
+  "type": "",
+  "file_name": "",
   "api_key": "",
   "owner": "Loogbook Owner",
   "page_brakes": "",
@@ -34,11 +40,13 @@ You will need to create an API key to allow the tool to fetch the data from the 
 ```
 
 3. Open the file with a text editor and update the parameters
-- `api_key` - the API key
+- `type` - should be `google` or `xlsx`
+- `file_name` - excel filename in case the parameter `type` is `xlsx`. Can be just `logbook.xlsx` or a full path to the file `/path/to/the/file/logbook.xlsx`
+- `api_key` - the google API key in case the parameter `type` is `google`
 - `owner` - your Name, which will be written in the logbook footer
 - `page_brakes` - in case you'd like to divide the logbook to several ones add the page numbers. For example, for every 50 pages `"page_brakes": "50,50,50"`
 - `reverse` - should be `"true"` or "`false`", depends how you add records to the spreadsheet
-- `spreadsheet_id` - ID of your copied spreadsheet. You can see it in the browser URL: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit?usp=sharing`
+- `spreadsheet_id` - ID of your copied spreadsheet. You can see it in the browser URL: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit?usp=sharing`. In case you use xlsx you can skip it.
 - `start_row` - the first row in the spreadsheet with a flight data. In the example spreadsheet it's a #16
 
 4. You can test the tool simply running it from the command line: `./logbook export`. You should see a meesage like `Loogbook has been exported to logbook.pdf` and the pdf file in the directory
@@ -51,9 +59,9 @@ You will need to create an API key to allow the tool to fetch the data from the 
 ./logbook export
 ```
 
-It will download the data from the google spreadsheet and create a PDF file logbook in EASA format
+It will get the data from the logbook and create a PDF logbook in EASA format
 
-![Logbook page example](./img/logbook-page-example.png)
+![Logbook page example](./internal/logbook-page-example.png)
 
 ## Render map
 
@@ -77,13 +85,13 @@ Create a map with visited airports for the all records
 
 `./logbook render-map --no-routes`
 
-![Visited Airports only](./img/map-wo-routes.png)
+![Visited Airports only](./internal/map-wo-routes.png)
 
 Create a map with flights for the October 2021
 
 `./logbook render-map --filter-date "10/2021"`
 
-![Filtered Map](./img/map-filtered.png)
+![Filtered Map](./internal/map-filtered.png)
 
 # TODO
 - add show-stats command with total times and some other numbers
